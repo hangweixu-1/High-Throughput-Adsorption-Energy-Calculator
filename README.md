@@ -1,159 +1,250 @@
 # High-Throughput Adsorption Energy Calculator
 
-Automated workflow for computing adsorption energies on alloy surfaces using MACE (machine learning potential) or GPAW (DFT). Supports batch processing of CIF files with checkpoint/resume capability.
+Automated workflow for screening copper-based (and other) alloy catalysts: download crystal structures from Materials Project, generate surface slabs, and compute adsorption energies using MACE (machine learning potential) or GPAW (DFT).
 
-## Features
+## Overview
 
-- **Two engines**: MACE (fast ML potential) or GPAW (DFT)
-- **Command-line interface**: specify input folder, engine, and options
-- **Checkpoint/resume**: safely interrupt and continue long calculations
-- **Organized output**: one folder per CIF with all relaxed structures, trajectories, and summary CSV
-- **Real-time progress**: every step prints what is being computed, with timing
+The project consists of two scripts:
 
-## Quick Start
+1. **`download_cif.py`** — Query the Materials Project database and batch-download CIF files with flexible composition / stability / band-gap filters.
+2. **`High_Throughput.py`** — Read CIF files, build surface slabs, place adsorbates (CO₂, CO, H, COOH, CHO …), relax with MACE or GPAW, and output adsorption-energy descriptors.
+
+## Prerequisites
+
+- Python 3.9+
+- A Materials Project API key (free): <https://next-gen.materialsproject.org/api>
+
+Set the key as an environment variable so both scripts can use it:
 
 ```bash
-# Basic usage
-python job.py ./cifs mace
+export MP_API_KEY="your_key_here"
+```
 
-# With GPAW
-python job.py ./cifs gpaw
+## 1. Downloading CIF Files (`download_cif.py`)
 
-# Resume interrupted run
-python job.py ./cifs mace --resume
+### Basic Usage
 
-# Custom output directory
-python job.py ./cifs mace -o my_results
+```bash
+python download_cif.py --api-key YOUR_KEY --elements Cu
+```
+
+This downloads **all materials containing Cu** into the `./cif` folder. For catalyst screening you usually want tighter filters — see the examples below.
+
+### Command-Line Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--api-key` | env `MP_API_KEY` | Materials Project API key |
+| `--elements` | `Cu` | Elements that **must** be present (comma-separated) |
+| `--chemsys` | — | Chemical system, e.g. `Cu-Zn-O`. Overrides `--elements` |
+| `--exclude-elements` | — | Elements that must **not** be present (comma-separated) |
+| `--is-stable` | off | Only thermodynamically stable phases (on the convex hull) |
+| `--energy-above-hull-max` | — | Max energy above hull in eV/atom (e.g. `0.05`) |
+| `--band-gap-min` | — | Minimum band gap (eV) |
+| `--band-gap-max` | — | Maximum band gap (eV) |
+| `--num-elements-max` | — | Maximum number of element types |
+| `--outdir` | `cif` | Output folder |
+| `--limit` | 0 (no limit) | Max number of structures to download |
+| `--conventional` | off | Export as conventional standard cell |
+| `--skip-existing` | off | Skip files already on disk |
+
+### Copper-Based Catalyst Examples
+
+**All stable Cu-containing structures (broad screen):**
+
+```bash
+python download_cif.py --elements Cu --is-stable --outdir cif_cu_stable
+```
+
+**Copper oxides — only synthesisable metastable phases:**
+
+```bash
+python download_cif.py --elements Cu,O --energy-above-hull-max 0.05 \
+    --exclude-elements Hg,Cd,Pb,Tl --outdir cif_cuo
+```
+
+**Cu-Zn-O ternary system (methanol synthesis catalyst family):**
+
+```bash
+python download_cif.py --chemsys Cu-Zn-O --energy-above-hull-max 0.1 \
+    --outdir cif_cuzno
+```
+
+**Cu-N compounds (electrocatalysis, nitrogen reduction):**
+
+```bash
+python download_cif.py --elements Cu,N --is-stable \
+    --exclude-elements Hg,Cd,Pb --outdir cif_cun
+```
+
+**Cu-based bimetallics for CO₂ reduction (binary only):**
+
+```bash
+python download_cif.py --elements Cu --num-elements-max 2 \
+    --energy-above-hull-max 0.05 --exclude-elements Hg,Cd,Pb,Tl,As \
+    --outdir cif_cu_binary
+```
+
+**Cu-Pd alloys (complete chemical system):**
+
+```bash
+python download_cif.py --chemsys Cu-Pd --is-stable --outdir cif_cupd
+```
+
+**Semiconducting Cu compounds (photo-catalysis, band gap 1–3 eV):**
+
+```bash
+python download_cif.py --elements Cu --band-gap-min 1.0 --band-gap-max 3.0 \
+    --energy-above-hull-max 0.05 --outdir cif_cu_semi
+```
+
+**Quick test — just 5 structures:**
+
+```bash
+python download_cif.py --elements Cu,O --is-stable --limit 5 \
+    --conventional --outdir cif_test
+```
+
+## 2. Computing Adsorption Energies (`job.py`)
+
+### Quick Start
+
+```bash
+# MACE (fast, ML potential)
+python job.py ./cif_cu_binary mace
+
+# GPAW (DFT, more accurate, much slower)
+python job.py ./cif_cu_binary gpaw
+
+# Resume after interruption
+python job.py ./cif_cu_binary mace --resume
 
 # Custom Miller index and supercell
-python job.py ./cifs mace --miller 1,1,1 --supercell 3,3,1
+python job.py ./cif_cu_binary mace --miller 1,1,1 --supercell 3,3,1
 ```
 
-## Command-Line Options
+### Command-Line Options
 
-```
-positional arguments:
-  cif_folder             Path to folder containing .cif files
-  engine                 Calculation engine: mace or gpaw
+| Flag | Default | Description |
+|------|---------|-------------|
+| `cif_folder` | (required) | Folder containing `.cif` files |
+| `engine` | (required) | `mace` or `gpaw` |
+| `-o, --output` | `ht_results` | Output root directory |
+| `-r, --resume` | off | Resume from last checkpoint |
+| `--miller` | `1,1,0` | Miller index (comma-separated) |
+| `--supercell` | `2,2,1` | Supercell size (comma-separated) |
+| `--mace-model` | (built-in path) | Path to MACE `.model` file |
+| `--mace-device` | `cpu` | `cpu` or `cuda` |
+| `--fmax-mace` | `0.10` | Force convergence for MACE (eV/Å) |
+| `--fmax-gpaw` | `0.05` | Force convergence for GPAW (eV/Å) |
+| `--max-steps` | `200` | Max BFGS optimisation steps |
+| `--max-candidates` | `12` | Max adsorption site candidates per adsorbate |
 
-optional arguments:
-  -o, --output DIR       Output root directory (default: ht_results)
-  -r, --resume           Resume from last checkpoint
-  --miller M             Miller index, comma-separated (default: 1,1,0)
-  --supercell S          Supercell size, comma-separated (default: 2,2,1)
-  --mace-model PATH      Path to MACE model file
-  --mace-device DEV      cpu or cuda (default: cpu)
-  --fmax-mace F          Force convergence for MACE in eV/A (default: 0.10)
-  --fmax-gpaw F          Force convergence for GPAW in eV/A (default: 0.05)
-  --max-steps N          Max BFGS optimization steps (default: 200)
-  --max-candidates N     Max adsorption site candidates per adsorbate (default: 12)
-```
+### Workflow
 
-## Output Structure
+For each CIF file the script:
+
+1. Parses the crystal structure
+2. Generates surface slabs for the target Miller index
+3. Relaxes all terminations and selects the lowest-energy one
+4. Places adsorbates (CO₂, CO, H, COOH, CHO) via pymatgen's `AdsorbateSiteFinder`
+5. Relaxes every adsorption candidate and ranks by energy
+6. Computes adsorption-energy descriptors relative to gas-phase references
+7. Writes per-structure CSV and XYZ files
+
+### Adsorbates and Descriptors
+
+| Adsorbate | Descriptor | Formula |
+|-----------|------------|---------|
+| H | ΔG\*H | E(ads) − E(slab) − 0.5 × E(H₂) |
+| CO | ΔG\*CO | E(ads) − E(slab) − E(CO) |
+| CO₂ | ΔG\*CO₂ | E(ads) − E(slab) − E(CO₂) |
+| COOH | ΔG\*COOH | E(ads) − E(slab) − E(CO₂) − 0.5 × E(H₂) |
+| CHO | ΔG\*CHO (proxy) | E(ads) − E(slab) − E(CO) − 0.5 × E(H₂) |
+
+Gas-phase references (H₂, CO, CO₂, H₂O) are computed once and cached in `gas_cache.json`.
+
+### Output Structure
 
 ```
 ht_results/
-  global_checkpoint.json      # tracks which CIF files are fully completed
-  gas_cache.json              # cached gas molecule reference energies
-  calculation.log             # full log
-  CuPd/
-    CuPd.cif                  # copy of input file
-    checkpoint.json            # per-structure progress (slab + each adsorbate)
-    CuPd_slab_relaxed.xyz      # relaxed clean slab
-    CuPd_slab_term0.traj       # slab optimization trajectory
-    CuPd_CO2_cand0_relaxed.xyz # all relaxed adsorption candidates
-    CuPd_CO2_cand1_relaxed.xyz
-    CuPd_CO2_cand2_relaxed.xyz
-    CuPd_CO2_BEST_cand0.xyz    # best candidate clearly labeled
-    CuPd_CO_BEST_cand2.xyz
-    CuPd_H_BEST_cand1.xyz
-    CuPd_COOH_BEST_cand0.xyz
-    CuPd_CHO_BEST_cand3.xyz
-    CuPd_descriptors.csv       # summary table with all adsorption energies
-  NiCu/
+  global_checkpoint.json          # tracks completed CIF files
+  gas_cache.json                  # cached gas-phase reference energies
+  calculation.log                 # full log
+  Cu3Pd/
+    Cu3Pd.cif                     # copy of input
+    checkpoint.json               # per-structure progress
+    Cu3Pd_slab_relaxed.xyz        # relaxed clean slab
+    Cu3Pd_CO2_cand0_relaxed.xyz   # all relaxed adsorption candidates
+    Cu3Pd_CO2_BEST_cand0.xyz      # best candidate (clearly labelled)
+    Cu3Pd_CO_BEST_cand2.xyz
+    Cu3Pd_H_BEST_cand1.xyz
+    Cu3Pd_COOH_BEST_cand0.xyz
+    Cu3Pd_CHO_BEST_cand3.xyz
+    Cu3Pd_descriptors.csv         # summary table
+  CuZn/
     ...
 ```
 
-## Checkpoint / Resume
+### Checkpoint / Resume
 
-The script saves progress at two levels:
+Progress is saved at two levels:
 
-1. **Global checkpoint** (`global_checkpoint.json`): records which CIF files have been fully processed. On resume, completed files are skipped entirely.
-
-2. **Per-structure checkpoint** (`<name>/checkpoint.json`): records whether the slab has been relaxed and which adsorbates have been computed. On resume, the slab relaxation is skipped if already done, and only remaining adsorbates are calculated.
-
-To resume after an interruption:
+- **Global** (`global_checkpoint.json`) — which CIF files are fully done; skipped on resume.
+- **Per-structure** (`checkpoint.json`) — slab relaxation status and completed adsorbates; only remaining work is redone.
 
 ```bash
-python job.py ./cifs mace --resume
+# Resume
+python job.py ./cif_cu_binary mace --resume
+
+# Start fresh (ignores all checkpoints)
+python job.py ./cif_cu_binary mace
 ```
 
-To start fresh (ignore previous checkpoints):
+### MACE Configuration
 
-```bash
-python job.py ./cifs mace
-```
-
-## Adsorbates and Descriptors
-
-The following adsorbates are screened by default:
-
-| Adsorbate | Descriptor          | Reference                        |
-|-----------|---------------------|----------------------------------|
-| H         | dG_*H               | E_ads - E_slab - 0.5*E(H2)      |
-| CO        | dG_*CO              | E_ads - E_slab - E(CO)           |
-| CO2       | dG_*CO2             | E_ads - E_slab - E(CO2)          |
-| COOH      | dG_*COOH            | E_ads - E_slab - E(CO2) - 0.5*E(H2) |
-| CHO       | dG_*CHO_proxy       | E_ads - E_slab - E(CO) - 0.5*E(H2)  |
-
-Gas-phase reference molecules (H2, CO, CO2, H2O) are computed once and cached in `gas_cache.json`.
-
-## Workflow
-
-For each CIF file the script performs:
-
-1. **Parse crystal structure** from CIF
-2. **Generate surface slabs** for the target Miller index
-3. **Select best termination** by relaxing all candidates and picking the lowest energy
-4. **Generate adsorption sites** using pymatgen's AdsorbateSiteFinder
-5. **Relax all adsorption candidates** and rank by energy
-6. **Compute adsorption energy descriptors** relative to gas-phase references
-7. **Save results** as CSV and XYZ files
-
-## MACE Model
-
-The default MACE model path is set to:
-
-```
-/public/home/lib/tc/xifuneng/2023-12-03-mace-128-L1_epoch-199.model
-```
-
-Change it with `--mace-model`:
+The default model path is hard-coded for a specific cluster. Override it:
 
 ```bash
 python job.py ./cifs mace --mace-model /path/to/your/model.model
 ```
 
-For GPU acceleration:
+GPU acceleration:
 
 ```bash
 python job.py ./cifs mace --mace-device cuda
 ```
 
-## GPAW Settings
+### GPAW Configuration
 
-When using GPAW engine, the following defaults are used:
+Default settings when using the GPAW engine:
 
 - Plane-wave cutoff: 470 eV
 - Exchange-correlation: PBE
-- k-points (slab): 3x3x1
-- k-points (molecule): 1x1x1
-- Fermi-Dirac smearing: 0.10 eV
-- Dipole correction: xy layer
+- k-points (slab): 3 × 3 × 1; (molecule): 1 × 1 × 1
+- Fermi–Dirac smearing: 0.10 eV
+- Dipole correction: xy
+
+## End-to-End Example
+
+```bash
+# 1. Set API key
+export MP_API_KEY="your_key"
+
+# 2. Download stable Cu-Pd alloys
+python download_cif.py --chemsys Cu-Pd --is-stable --conventional --outdir cifs_cupd
+
+# 3. Screen with MACE (fast)
+python job.py cifs_cupd mace -o results_cupd
+
+# 4. Inspect results
+cat results_cupd/Cu3Pd/Cu3Pd_descriptors.csv
+
+# 5. If interrupted, resume
+python job.py cifs_cupd mace -o results_cupd --resume
+```
 
 ## Installation
-
-See `requirements.txt` for Python dependencies. A conda environment is recommended:
 
 ```bash
 conda create -n adsorption python=3.10
@@ -161,40 +252,21 @@ conda activate adsorption
 pip install -r requirements.txt
 ```
 
-For GPAW, follow the official GPAW installation guide as it requires C extensions:
+For GPAW (requires C extensions):
 
 ```bash
-# Option 1: conda
 conda install -c conda-forge gpaw
-
-# Option 2: pip (needs libxc, BLAS, etc.)
-pip install gpaw
-gpaw install-data
+# or
+pip install gpaw && gpaw install-data
 ```
 
-For MACE:
+For MACE with GPU:
 
 ```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121
 pip install mace-torch
-```
-
-## Example
-
-```bash
-# Prepare input
-mkdir cifs
-cp CuPd.cif NiCu.cif FePd.cif cifs/
-
-# Run with MACE
-python job.py cifs mace -o results
-
-# Check results
-cat results/CuPd/CuPd_descriptors.csv
-
-# Resume if interrupted
-python job.py cifs mace -o results --resume
 ```
 
 ## License
 
-For internal/research use.
+For internal / research use.
