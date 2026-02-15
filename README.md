@@ -105,22 +105,22 @@ python download_cif.py --elements Cu,O --is-stable --limit 5 \
     --conventional --outdir cif_test
 ```
 
-## 2. Computing Adsorption Energies (`job.py`)
+## 2. Computing Adsorption Energies (`High_throughput.py`)
 
 ### Quick Start
 
 ```bash
 # MACE (fast, ML potential)
-python job.py ./cif_cu_binary mace
+python High_throughput.py ./cif_cu_binary mace
 
 # GPAW (DFT, more accurate, much slower)
-python job.py ./cif_cu_binary gpaw
+python High_throughput.py ./cif_cu_binary gpaw
 
 # Resume after interruption
-python job.py ./cif_cu_binary mace --resume
+python High_throughput.py ./cif_cu_binary mace --resume
 
 # Custom Miller index and supercell
-python job.py ./cif_cu_binary mace --miller 1,1,1 --supercell 3,3,1
+python High_throughput.py ./cif_cu_binary mace --miller 1,1,1 --supercell 3,3,1
 ```
 
 ### Command-Line Options
@@ -195,10 +195,10 @@ Progress is saved at two levels:
 
 ```bash
 # Resume
-python job.py ./cif_cu_binary mace --resume
+python High_throughput.py ./cif_cu_binary mace --resume
 
 # Start fresh (ignores all checkpoints)
-python job.py ./cif_cu_binary mace
+python High_throughput.py ./cif_cu_binary mace
 ```
 
 ### MACE Configuration
@@ -206,13 +206,13 @@ python job.py ./cif_cu_binary mace
 The default model path is hard-coded for a specific cluster. Override it:
 
 ```bash
-python job.py ./cifs mace --mace-model /path/to/your/model.model
+python High_throughput.py ./cifs mace --mace-model /path/to/your/model.model
 ```
 
 GPU acceleration:
 
 ```bash
-python job.py ./cifs mace --mace-device cuda
+python High_throughput.py ./cifs mace --mace-device cuda
 ```
 
 ### GPAW Configuration
@@ -235,13 +235,13 @@ export MP_API_KEY="your_key"
 python download_cif.py --chemsys Cu-Pd --is-stable --conventional --outdir cifs_cupd
 
 # 3. Screen with MACE (fast)
-python job.py cifs_cupd mace -o results_cupd
+python High_throughput.py cifs_cupd mace -o results_cupd
 
 # 4. Inspect results
 cat results_cupd/Cu3Pd/Cu3Pd_descriptors.csv
 
 # 5. If interrupted, resume
-python job.py cifs_cupd mace -o results_cupd --resume
+python High_throughput.py cifs_cupd mace -o results_cupd --resume
 ```
 
 ## Installation
