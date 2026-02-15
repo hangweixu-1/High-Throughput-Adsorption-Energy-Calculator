@@ -171,7 +171,46 @@ logging.getLogger("ase").setLevel(logging.ERROR)
 os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 
 # -----------------------------
-# Imports
+# CRITICAL: Detect engine from argv and patch MPI BEFORE any ASE/pymatgen imports.
+# If gpaw is installed, importing ASE can trigger gpaw.mpi initialization.
+# This must happen first to prevent that.
+# -----------------------------
+def _early_detect_engine():
+    """Quick scan of sys.argv to detect engine before argparse runs."""
+    for a in sys.argv[1:]:
+        if a in ("mace", "gpaw"):
+            return a
+    return "mace"  # default fallback
+
+def force_ase_serial():
+    """Replace ASE's MPI world with a safe serial dummy."""
+    # Purge any already-loaded gpaw modules
+    for mod in list(sys.modules.keys()):
+        if mod == "_gpaw" or mod.startswith("gpaw"):
+            sys.modules.pop(mod, None)
+    import ase.parallel as ap
+    dummy = ap.DummyMPI()
+    # Patch all methods that MACE / ASE internals may call on world
+    if not hasattr(dummy, "sum_scalar"):
+        dummy.sum_scalar = lambda x, root=-1: x
+    if not hasattr(dummy, "sum"):
+        dummy.sum = lambda a, root=-1: a
+    if not hasattr(dummy, "broadcast"):
+        dummy.broadcast = lambda a, root=0: a
+    if not hasattr(dummy, "barrier"):
+        dummy.barrier = lambda: None
+    if not hasattr(dummy, "gather"):
+        dummy.gather = lambda a, root=0: [a]
+    ap.world = dummy
+    ap.rank = 0
+    ap.size = 1
+
+_EARLY_ENGINE = _early_detect_engine()
+if _EARLY_ENGINE == "mace":
+    force_ase_serial()
+
+# -----------------------------
+# Imports (now safe -- MPI is already patched if engine=mace)
 # -----------------------------
 from pymatgen.io.cif import CifParser
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
@@ -199,15 +238,6 @@ def ensure_gpaw(cfg):
         GPAW_AVAILABLE = True
     except Exception as e:
         raise ImportError("GPAW import failed: %s" % e)
-
-def force_ase_serial():
-    for mod in list(sys.modules.keys()):
-        if mod == "_gpaw" or mod.startswith("gpaw"):
-            sys.modules.pop(mod, None)
-    import ase.parallel as ap
-    ap.world = ap.DummyMPI()
-    ap.rank = 0
-    ap.size = 1
 
 # -----------------------------
 # Utilities
@@ -608,9 +638,6 @@ def main():
 
     logging.basicConfig(filename=os.path.join(cfg.OUTDIR, "calculation.log"),
                         level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-
-    if cfg.ENGINE == "mace":
-        force_ase_serial()
 
     cifs = sorted(glob.glob(os.path.join(cfg.CIF_FOLDER, "*.cif")))
     if not cifs:
