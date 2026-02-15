@@ -1,3 +1,4 @@
+
 ---
 
 # High-Throughput Adsorption Energy Calculator
@@ -394,4 +395,9 @@ pip install mace-torch
 
 ---
 
+## License
+
+For internal / research use.
+
+---
 
