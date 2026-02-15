@@ -1,8 +1,7 @@
 
 ---
 
-# High-Throughput Adsorption Energy Calculator
-
+High-Throughput Adsorption Energy Calculator
 Automated workflow for screening alloy catalysts: download crystal structures from Materials Project, generate surface slabs, and compute adsorption(-descriptor) energies using **MACE (machine-learning potential)** or **GPAW (DFT)**.
 
 This repository is designed for **high-throughput, reproducible** adsorption screening on surfaces, with **robust candidate selection** (no “truncate first N sites”) and **stable constraint handling** (no heuristic adsorbate detection by `z`).
