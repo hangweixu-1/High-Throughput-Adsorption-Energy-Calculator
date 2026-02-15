@@ -1,0 +1,34 @@
+# =============================================================
+# High-Throughput Adsorption Energy Calculator - Requirements
+# =============================================================
+# Install:  pip install -r requirements.txt
+#
+# Notes:
+#   - GPAW and MACE have heavy dependencies (torch, libxc, etc.)
+#     Install only what you need based on your chosen engine.
+#   - For GPAW, conda install is often easier than pip.
+#   - For GPU support with MACE, install pytorch with CUDA first.
+# =============================================================
+
+# --- Core (always required) ---
+numpy>=1.22
+ase>=3.22                  # Atomic Simulation Environment
+pymatgen>=2023.1           # Structure analysis, slab generation, adsorption sites
+
+# --- MACE engine (install if using engine=mace) ---
+# Requires PyTorch. Install PyTorch first:
+#   CPU:  pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu121
+mace-torch>=0.3.0
+
+# --- GPAW engine (install if using engine=gpaw) ---
+# GPAW requires compiled C extensions and libxc.
+# Recommended via conda:
+#   conda install -c conda-forge gpaw
+# Or via pip (needs system libs):
+#   pip install gpaw
+#   gpaw install-data
+# gpaw>=22.8.0
+
+# --- Utilities (usually already installed with above) ---
+scipy>=1.7
