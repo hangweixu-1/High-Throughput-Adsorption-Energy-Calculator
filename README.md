@@ -7,7 +7,7 @@ Automated workflow for screening copper-based (and other) alloy catalysts: downl
 The project consists of two scripts:
 
 1. **`download_cif.py`** — Query the Materials Project database and batch-download CIF files with flexible composition / stability / band-gap filters.
-2. **`High_Throughput.py`** — Read CIF files, build surface slabs, place adsorbates (CO₂, CO, H, COOH, CHO …), relax with MACE or GPAW, and output adsorption-energy descriptors.
+2. **`High_throughput.py`** — Read CIF files, build surface slabs, place adsorbates (CO₂, CO, H, COOH, CHO …), relax with MACE or GPAW, and output adsorption-energy descriptors.
 
 ## Prerequisites
 
