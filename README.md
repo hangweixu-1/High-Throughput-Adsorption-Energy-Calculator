@@ -19,7 +19,7 @@ The project consists of two scripts:
 
 ## Key Features (What this workflow guarantees)
 
-### ✅ Candidate selection is NOT order-dependent
+###  Candidate selection is NOT order-dependent
 
 * **No “take the first N sites” truncation**.
 * If there are too many sites:
@@ -27,7 +27,7 @@ The project consists of two scripts:
   * **MACE engine** performs **cheap pre-ranking** (single-point or short relax) and keeps the top-K before full relaxation.
   * **GPAW engine** performs **geometric bucketing/downselect** (deterministic) before full relaxation.
 
-### ✅ Robust constraints (no adsorbate misclassification)
+### Robust constraints (no adsorbate misclassification)
 
 * Adsorbates are placed using **ASE `add_adsorbate`** so that:
 
@@ -39,12 +39,12 @@ The project consists of two scripts:
   * adsorbate starts low or migrates into the surface
   * high-index / stepped surfaces exist
 
-### ✅ Reproducible and restart-safe
+###Reproducible and restart-safe
 
 * Gas reference cache and global checkpoints are protected by **simple file locks** to reduce corruption when multiple jobs share an output directory.
 * Supports `--resume` at both **global** and **per-structure** levels.
 
-### ✅ CO₂RR-ready adsorbates
+### CO₂RR-ready adsorbates
 
 * Default adsorbates include **OCHO** (formate/formic acid key intermediate).
 
