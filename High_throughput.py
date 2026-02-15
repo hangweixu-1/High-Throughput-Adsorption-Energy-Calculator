@@ -1,4 +1,3 @@
-
 import os
 import sys
 import glob
@@ -21,6 +20,7 @@ def plog(msg, level="INFO"):
     tag = {"INFO": "[OK]", "WARN": "[!!]", "ERROR": "[ERR]", "STEP": "[>>]",
            "DONE": "[DONE]", "RUN": "[...]"}.get(level, "[--]")
     print("[%s] %s %s" % (timestamp, tag, msg), flush=True)
+    # Configure logger on first call if needed, or assume main sets it up
     log_fn = {"WARN": logging.warning, "ERROR": logging.error}.get(level, logging.info)
     log_fn(msg)
 
@@ -388,17 +388,17 @@ def build_adsorbates() -> Dict[str, Molecule]:
     a["CHO"] = Molecule(["H", "C", "O"], [[0, 0, 0], [1.10, 0, 0], [2.33, 0, 0]])
     a["CH2O"] = Molecule(["H", "H", "C", "O"], [[0, .9, 0], [0, -.9, 0], [1.10, 0, 0], [2.33, 0, 0]])
 
-    # OCHO (formate-like): minimal geometry seed.
-    # NOTE: This is a starting guess; high-throughput will relax anyway.
-    # One reasonable seed: H attached to one O, O-C-O backbone.
+    # [FIX] OCHO (Formate): 
+    # Use a bent structure (H-C-O2), not linear. Linear H-O-C-O is unstable.
+    # This structure represents H attached to C, and two O attached to C.
     a["OCHO"] = Molecule(
-        ["H", "O", "C", "O"],
+        ["H", "C", "O", "O"],
         [
-            [0.00, 0.00, 0.00],   # H
-            [0.95, 0.00, 0.00],   # O(H)
-            [2.20, 0.00, 0.00],   # C
-            [3.35, 0.00, 0.00],   # O
-        ],
+            [0.000, 0.000, 0.000],   # H
+            [1.100, 0.000, 0.000],   # C
+            [1.700, 1.100, 0.000],   # O
+            [1.700, -1.100, 0.000]   # O
+        ]
     )
     return a
 
@@ -568,17 +568,7 @@ def pick_best_term(cfg, slabs, adaptor, workdir, base, mace_calc=None):
 def compute_descriptor(name: str, E_ads_sys: float, E_slab: float, gE: Dict[str, float]) -> Tuple[str, float]:
     """
     Return (descriptor_name, value_eV).
-
-    NOTE: These are *descriptor proxies* (DFT total energies + optional constant corrections).
-    They are not full electrochemical free energies ΔG(U). We keep them as consistent ranking metrics.
     """
-    # Descriptor mapping:
-    # - H:  * + 1/2 H2 -> *H
-    # - CO: * + CO -> *CO
-    # - CO2:* + CO2 -> *CO2
-    # - COOH proxy: * + CO2 + 1/2 H2 -> *COOH  (CHE-ish)
-    # - OCHO proxy: * + CO2 + 1/2 H2 -> *OCHO  (formate-like key descriptor)
-    # - CHO proxy:  * + CO + 1/2 H2 -> *CHO
     m = {
         "H":    ("dE_*H",          E_ads_sys - E_slab - 0.5 * gE["H2"]),
         "CO":   ("dE_*CO",         E_ads_sys - E_slab - gE["CO"]),
@@ -649,7 +639,6 @@ def build_adsorption_candidates_ase(
 
         # sanity: ensure slab atoms are first, ads are last
         if len(aa) <= n_slab:
-            # should never happen
             continue
         cands.append((i, aa, xyz))
     return cands
@@ -1037,16 +1026,16 @@ def main():
     done_f = set(gck.get("completed_files", []))
 
     pbar_header("High-throughput adsorption energy calculation")
-    plog("Engine       : %s" % cfg.ENGINE)
-    plog("CIF folder   : %s" % cfg.CIF_FOLDER)
-    plog("Output       : %s" % cfg.OUTDIR)
-    plog("Miller       : %s" % str(cfg.TARGET_MILLER))
-    plog("Supercell    : %s" % str(cfg.SLAB_SUPERCELL))
-    plog("kspacing     : %.3f 1/Å" % cfg.KSPACING)
-    plog("MaxCand/ads  : %d" % cfg.MAX_ADS_CANDIDATES)
-    plog("Resume       : %s" % cfg.RESUME)
-    plog("Adsorbates   : %s" % ", ".join(cfg.SCREEN_ADS))
-    plog("Total CIFs   : %d" % len(cifs))
+    plog("Engine        : %s" % cfg.ENGINE)
+    plog("CIF folder    : %s" % cfg.CIF_FOLDER)
+    plog("Output        : %s" % cfg.OUTDIR)
+    plog("Miller        : %s" % str(cfg.TARGET_MILLER))
+    plog("Supercell     : %s" % str(cfg.SLAB_SUPERCELL))
+    plog("kspacing      : %.3f 1/Å" % cfg.KSPACING)
+    plog("MaxCand/ads   : %d" % cfg.MAX_ADS_CANDIDATES)
+    plog("Resume        : %s" % cfg.RESUME)
+    plog("Adsorbates    : %s" % ", ".join(cfg.SCREEN_ADS))
+    plog("Total CIFs    : %d" % len(cifs))
     for i, f in enumerate(cifs, 1):
         bn = os.path.basename(f)
         tag = " [DONE]" if bn in done_f else ""
