@@ -11,7 +11,7 @@ The project consists of two scripts:
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.10+
 - A Materials Project API key (free): <https://next-gen.materialsproject.org/api>
 
 Set the key as an environment variable so both scripts can use it:
