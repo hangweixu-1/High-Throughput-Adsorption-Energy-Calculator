@@ -1,0 +1,42 @@
+# =============================================================
+# High-Throughput Adsorption Energy Calculator - Requirements
+# =============================================================
+#
+# Recommended install order:
+#   1. Create a conda environment:
+#        conda create -n adsorption python=3.10
+#        conda activate adsorption
+#
+#   2. Install PyTorch FIRST (pick ONE):
+#        CPU only : pip install torch --index-url https://download.pytorch.org/whl/cpu
+#        CUDA 12.1: pip install torch --index-url https://download.pytorch.org/whl/cu121
+#
+#   3. Install this file:
+#        pip install -r requirements.txt
+#
+#   4. (Optional) Install GPAW via conda if you need the DFT engine:
+#        conda install -c conda-forge gpaw
+#        gpaw install-data
+#
+# =============================================================
+
+# --- Core (always required) ----------------------------------
+numpy>=1.22,<2.0
+scipy>=1.7
+ase>=3.22                  # Atomic Simulation Environment
+pymatgen>=2023.1           # structure analysis, slab generation, adsorption sites
+
+# --- CIF download script (download_cif.py) -------------------
+mp-api>=0.37               # Materials Project REST client
+tqdm                       # optional but recommended progress bar
+
+# --- MACE engine (install if using engine=mace) --------------
+# Requires PyTorch — install PyTorch before this line.
+mace-torch>=0.3.0
+
+# --- GPAW engine (install if using engine=gpaw) --------------
+# GPAW needs compiled C extensions and libxc.
+# Prefer conda:  conda install -c conda-forge gpaw
+# Or pip:        pip install gpaw && gpaw install-data
+# Uncomment the line below only if installing via pip:
+# gpaw>=22.8.0
