@@ -1,0 +1,138 @@
+{
+  "workspace": "workspace_budget",
+  "budget": {
+    "max_successes": 30,
+    "max_attempts": 200,
+    "batch_size": 6
+  },
+  "download": {
+    "per_query_limit": 80,
+    "is_stable": false,
+    "energy_above_hull_max": 0.1,
+    "exclude_elements": "Hg,Cd,Pb,Tl",
+    "num_elements_max": 4,
+    "conventional": true
+  },
+  "filters": {
+    "max_nsites": 250
+  },
+  "queries": {
+    "seed_families": [
+      "cu_alloys",
+      "cu_oxides",
+      "carbides",
+      "nitrides",
+      "sulfides",
+      "phosphides",
+      "selenides"
+    ],
+    "initial_queue": [],
+    "max_queue_size": 200
+  },
+  "active_learning": {
+    "algorithm": "linucb",
+    "alpha": 1.6,
+    "min_successes_before_expand": 12,
+    "expansion": {
+      "strategy": "hybrid",
+      "max_new_queries_per_expand": 10
+    }
+  },
+  "stage1": {
+    "engine": "mace",
+    "output": "ht_stage1",
+    "resume": true,
+    "miller": "1,1,0",
+    "supercell": "2,2,1",
+    "adsorbates": [
+      "CO2",
+      "CO",
+      "H",
+      "COOH",
+      "CHO",
+      "OCHO"
+    ],
+    "max_candidates": 12,
+    "kspacing": 0.22,
+    "mace_model": "",
+    "mace_device": "cuda",
+    "mace_dtype": "float64",
+    "fmax_mace": 0.1,
+    "max_steps": 200,
+    "pre_rank_steps": 0,
+    "pre_rank_fmax": 0.3
+  },
+  "stage2": {
+    "enabled": false,
+    "engine": "gpaw",
+    "output": "ht_stage2",
+    "resume": true,
+    "kspacing": 0.22,
+    "topk": 20,
+    "selection": "diverse",
+    "diverse_keys": [
+      "OCHO",
+      "CO",
+      "H"
+    ],
+    "calibration": {
+      "enabled": true,
+      "method": "linear",
+      "min_points": 6,
+      "clamp_slope": [
+        0.5,
+        1.5
+      ]
+    }
+  },
+  "ranking": {
+    "method": "pareto",
+    "missing_policy": "skip",
+    "topn_export": 20,
+    "score_terms": [
+      {
+        "key": "OCHO",
+        "target": -0.5,
+        "weight": 1.0
+      },
+      {
+        "key": "CO",
+        "target": 0.2,
+        "weight": 0.8
+      },
+      {
+        "key": "H",
+        "target": 0.2,
+        "weight": 0.6
+      }
+    ]
+  },
+  "engineering": {
+    "retry_failed_structures": true,
+    "max_structure_failures": 2,
+    "retry_batch_size": 3,
+    "no_progress_rounds_trigger_expand": 6,
+    "no_progress_max_forced_expands": 4,
+    "log_heal": {
+      "enabled": true,
+      "max_heal_rounds": 6
+    }
+  },
+  "controller": {
+    "mode": "hybrid",
+    "deepseek": {
+      "model": "deepseek-chat",
+      "max_calls": 20,
+      "max_total_tokens": 120000
+    }
+  },
+  "slurm": {
+    "enabled": false,
+    "partition": "",
+    "time": "04:00:00",
+    "mem": "16G",
+    "cpus_per_task": 4,
+    "gpus": 1,
+    "extra_sbatch": []
+  }
+}
